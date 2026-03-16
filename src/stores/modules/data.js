@@ -72,20 +72,67 @@ export default {
         async fetchTeamById({commit, state, dispatch, rootState}, id) {
             let team = null;
 
+            const normalizeId = (value) => {
+                if (value === null || value === undefined) {
+                    return null;
+                }
+                if (typeof value === 'object') {
+                    const objectId = value._id || value.id;
+                    return objectId !== undefined && objectId !== null ? String(objectId) : null;
+                }
+                return String(value);
+            };
+
+            const targetId = normalizeId(id);
+
+            const findTeamInList = (list, expectedId) => {
+                if (!Array.isArray(list) || !expectedId) {
+                    return null;
+                }
+
+                return list.find((entry) => {
+                    if (typeof entry === 'string' || typeof entry === 'number') {
+                        return normalizeId(entry) === expectedId;
+                    }
+                    if (entry && typeof entry === 'object') {
+                        return normalizeId(entry._id || entry.id) === expectedId;
+                    }
+                    return false;
+                }) || null;
+            };
+
             if (!id) {
                 commit('SET_CURRENT_TEAM', null);
                 return null;
             }
 
-            if (state.currentOrg && Array.isArray(state.currentOrg.teams)) {
-                team = state.currentOrg.teams.find((t) => (t._id || t.id) === id) || null;
+            if (state.currentOrg) {
+                const orgTeams = state.currentOrg.teams
+                    || state.currentOrg.idTeams
+                    || state.currentOrg.teamIds
+                    || state.currentOrg.id_teams
+                    || state.currentOrg.teams_id
+                    || [];
+                const orgMatch = findTeamInList(orgTeams, targetId);
+                if (orgMatch && typeof orgMatch === 'object') {
+                    team = orgMatch;
+                }
             }
 
             if (!team && state.currentOrgId && rootState.secret?.orgSecret) {
                 try {
                     await dispatch('fetchOrgById', state.currentOrgId);
-                    if (state.currentOrg && Array.isArray(state.currentOrg.teams)) {
-                        team = state.currentOrg.teams.find((t) => (t._id || t.id) === id) || null;
+                    if (state.currentOrg) {
+                        const orgTeams = state.currentOrg.teams
+                            || state.currentOrg.idTeams
+                            || state.currentOrg.teamIds
+                            || state.currentOrg.id_teams
+                            || state.currentOrg.teams_id
+                            || [];
+                        const orgMatch = findTeamInList(orgTeams, targetId);
+                        if (orgMatch && typeof orgMatch === 'object') {
+                            team = orgMatch;
+                        }
                     }
                 } catch (_error) {
                     // Fallback sur la liste globale des équipes si l'orga n'est pas accessible
@@ -97,7 +144,11 @@ export default {
             }
 
             if (!team && Array.isArray(state.teams)) {
-                team = state.teams.find((t) => (t._id || t.id) === id) || null;
+                team = findTeamInList(state.teams, targetId);
+            }
+
+            if ((typeof team === 'string' || typeof team === 'number') && Array.isArray(state.teams)) {
+                team = findTeamInList(state.teams, normalizeId(team));
             }
 
             commit('SET_CURRENT_TEAM', team);
