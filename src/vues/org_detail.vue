@@ -68,6 +68,10 @@ const ensureOrg = async () => {
     loading.value = true;
     try {
       await store.dispatch('data/fetchOrgById', routeOrgId);
+    } catch (_error) {
+      await store.dispatch('errors/clearError');
+      await store.dispatch('secret/setOrgSecret', null);
+      await store.dispatch('data/setCurrentOrg', null);
     } finally {
       loading.value = false;
     }
