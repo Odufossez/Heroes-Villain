@@ -69,22 +69,35 @@ export default {
             commit('SET_CURRENT_HERO', hero);
             return hero;
         },
-        async fetchTeamById({commit, state, dispatch}, id) {
-            // Si l'organisation courante est absente mais qu'on a un ID persisté, on la recharge
-            if (!state.currentOrg && state.currentOrgId) {
-                await dispatch('fetchOrgById', state.currentOrgId);
+        async fetchTeamById({commit, state, dispatch, rootState}, id) {
+            let team = null;
+
+            if (!id) {
+                commit('SET_CURRENT_TEAM', null);
+                return null;
             }
 
-            // L'API ne permet pas de récupérer une équipe avec ses membres directement.
-            // On doit la chercher dans l'organisation courante (TP 1 section 2.2 REMARQUE).
-            let team = null;
-            if (state.currentOrg && state.currentOrg.teams) {
-                team = state.currentOrg.teams.find(t => (t._id || t.id) === id);
+            if (state.currentOrg && Array.isArray(state.currentOrg.teams)) {
+                team = state.currentOrg.teams.find((t) => (t._id || t.id) === id) || null;
             }
-            
-            // Si pas trouvé dans l'organisation, chercher dans la liste globale
-            if (!team && state.teams) {
-                team = state.teams.find(t => (t._id || t.id) === id);
+
+            if (!team && state.currentOrgId && rootState.secret?.orgSecret) {
+                try {
+                    await dispatch('fetchOrgById', state.currentOrgId);
+                    if (state.currentOrg && Array.isArray(state.currentOrg.teams)) {
+                        team = state.currentOrg.teams.find((t) => (t._id || t.id) === id) || null;
+                    }
+                } catch (_error) {
+                    // Fallback sur la liste globale des équipes si l'orga n'est pas accessible
+                }
+            }
+
+            if (!team && (!Array.isArray(state.teams) || state.teams.length === 0)) {
+                await dispatch('fetchTeams');
+            }
+
+            if (!team && Array.isArray(state.teams)) {
+                team = state.teams.find((t) => (t._id || t.id) === id) || null;
             }
 
             commit('SET_CURRENT_TEAM', team);

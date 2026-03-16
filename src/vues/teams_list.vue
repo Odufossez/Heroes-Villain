@@ -34,7 +34,11 @@ const openTeam = async (team) => {
   if (!team || !team._id) {
     return;
   }
-  await store.dispatch('data/fetchTeamById', team._id);
+  const loadedTeam = await store.dispatch('data/fetchTeamById', team._id);
+  if (!loadedTeam) {
+    await store.dispatch('errors/setError', 'Impossible de charger cette equipe.');
+    return;
+  }
   await router.push(`/teams/${team._id}`);
 };
 
